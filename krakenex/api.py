@@ -17,7 +17,7 @@
 
 """Kraken.com cryptocurrency Exchange API."""
 
-import requests
+import aiohttp
 
 # private query nonce
 import time
@@ -29,6 +29,7 @@ import hmac
 import base64
 
 from . import version
+
 
 class API(object):
     """ Maintains a single session between this machine and Kraken.
@@ -61,13 +62,19 @@ class API(object):
         self.secret = secret
         self.uri = 'https://api.kraken.com'
         self.apiversion = '0'
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'krakenex/' + version.__version__ + ' (+' + version.__url__ + ')'
-        })
         self.response = None
+        self._session = None
+        self._async_initialised = False
         self._json_options = {}
-        return
+
+    async def async_init(self):
+        headers = {
+            'User-Agent': 'krakenex/' + version.__version__ + ' (+' + version.__url__ + ')'
+        }
+        if not self._async_initialised:
+            self._session = aiohttp.ClientSession(headers=headers)
+            self._async_initialised = True
+        return self
 
     def json_options(self, **kwargs):
         """ Set keyword arguments to be passed to JSON deserialization.
@@ -79,14 +86,13 @@ class API(object):
         self._json_options = kwargs
         return self
 
-    def close(self):
+    async def close(self):
         """ Close this session.
 
         :returns: None
 
         """
-        self.session.close()
-        return
+        await self._session.close()
 
     def load_key(self, path):
         """ Load key and secret from file.
@@ -101,9 +107,8 @@ class API(object):
         with open(path, 'r') as f:
             self.key = f.readline().strip()
             self.secret = f.readline().strip()
-        return
 
-    def _query(self, urlpath, data, headers=None, timeout=None):
+    async def _query(self, urlpath, data=None, headers=None, timeout=None):
         """ Low-level query handling.
 
         .. note::
@@ -124,23 +129,17 @@ class API(object):
         :raises: :py:exc:`requests.HTTPError`: if response status not successful
 
         """
-        if data is None:
-            data = {}
-        if headers is None:
-            headers = {}
-
+        data = data or {}
+        headers = headers or {}
         url = self.uri + urlpath
 
-        self.response = self.session.post(url, data = data, headers = headers,
-                                          timeout = timeout)
-
-        if self.response.status_code not in (200, 201, 202):
+        self.response = await self._session.post(
+            url, data=data, headers=headers, timeout=timeout)
+        if self.response.status not in (200, 201, 202):
             self.response.raise_for_status()
+        return await self.response.json(**self._json_options)
 
-        return self.response.json(**self._json_options)
-
-
-    def query_public(self, method, data=None, timeout=None):
+    async def query_public(self, method, data=None, timeout=None):
         """ Performs an API query that does not require a valid key/secret pair.
 
         :param method: API method name
@@ -154,14 +153,11 @@ class API(object):
         :returns: :py:meth:`requests.Response.json`-deserialised Python object
 
         """
-        if data is None:
-            data = {}
-
+        data = data or {}
         urlpath = '/' + self.apiversion + '/public/' + method
+        return await self._query(urlpath, data, timeout=timeout)
 
-        return self._query(urlpath, data, timeout = timeout)
-
-    def query_private(self, method, data=None, timeout=None):
+    async def query_private(self, method, data=None, timeout=None):
         """ Performs an API query that requires a valid key/secret pair.
 
         :param method: API method name
@@ -175,24 +171,21 @@ class API(object):
         :returns: :py:meth:`requests.Response.json`-deserialised Python object
 
         """
-        if data is None:
-            data = {}
+        data = data or {}
 
         if not self.key or not self.secret:
             raise Exception('Either key or secret is not set! (Use `load_key()`.')
 
         data['nonce'] = self._nonce()
-
         urlpath = '/' + self.apiversion + '/private/' + method
-
         headers = {
             'API-Key': self.key,
             'API-Sign': self._sign(data, urlpath)
         }
+        return await self._query(urlpath, data, headers, timeout=timeout)
 
-        return self._query(urlpath, data, headers, timeout = timeout)
-
-    def _nonce(self):
+    @staticmethod
+    def _nonce():
         """ Nonce counter.
 
         :returns: an always-increasing unsigned integer (up to 64 bits wide)
