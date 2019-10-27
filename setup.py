@@ -1,32 +1,22 @@
-#!/usr/bin/env python3
+from setuptools import setup
 
-import os.path
-from distutils.core import setup
+from krakenex.version import __version__, __url__
 
-exec(open('./krakenex/version.py').read())
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
-
-
-setup(name='krakenex',
-      version=__version__,
-      description='kraken.com cryptocurrency exchange API',
-      long_description=read('README.rst'),
-      author='Noel Maersk',
-      author_email='veox+packages+spamremove@veox.pw',
-      url=__url__,
-      install_requires=[
-          'aiohttp>=3.6.2'
-      ],
-      packages=['krakenex'],
-      python_requires='>=3.6',
-      classifiers=[
-          'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.3',
-          'Programming Language :: Python :: 3.4',
-          'Programming Language :: Python :: 3.5',
-          'Programming Language :: Python :: 3.6',
-      ],
+setup(
+    name='krakenex',
+    version=__version__,
+    packages=['krakenex'],
+    # package_dir={'': '.'},
+    # py_modules=[splitext(basename(path))[0] for path in glob('aioxzen/*.py')],
+    url=__url__,
+    license='MIT',
+    author='Noel Maersk, Dmitry Bogomolov',
+    author_email='dmitry.mantis@protonmail.com',
+    install_requires=[
+        'aiohttp>=3.6.2'
+    ],
+    description='Minimalistic library to interact with xzen protocol',
+    classifiers=[
+          'Programming Language :: Python :: 3.7',
+    ]
 )
