@@ -5,8 +5,10 @@ from distutils.core import setup
 
 exec(open('./krakenex/version.py').read())
 
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 
 setup(name='krakenex',
       version=__version__,
@@ -16,10 +18,10 @@ setup(name='krakenex',
       author_email='veox+packages+spamremove@veox.pw',
       url=__url__,
       install_requires=[
-          'aiohttp==3.6.2'
+          'aiohttp>=3.6.2'
       ],
       packages=['krakenex'],
-      python_requires='>=3.3',
+      python_requires='>=3.6',
       classifiers=[
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.3',
